@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a2e36">
+<title>راهنمای نقشه دانشگاه آزاد اسلامی کرمان</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <div id="map"></div>
+
+  <div class="top-chrome">
+    <header>
+      <div class="brand">
+        <div class="mark" aria-hidden="true">🎓</div>
+        <div class="titles">
+          <h1>راهنمای نقشه دانشگاه آزاد اسلامی کرمان</h1>
+          <p>مسیریابی سریع دانشکده‌ها، سلف، پارکینگ و امکانات دانشگاه</p>
+        </div>
+      </div>
+      <button type="button" class="cs-badge" id="csBadge" title="طراحی و توسعه با عشق توسط انجمن علمی کامپیوتر" aria-label="انجمن کامپیوتر">
+        <span>انجمن کامپیوتر</span>
+        <span class="heart" aria-hidden="true">❤️</span>
+      </button>
+    </header>
+
+    <div class="map-toolbar">
+      <div class="tool-group">
+        <button class="action-btn" id="fit" title="نمایش کل دانشگاه">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+          <span>کل دانشگاه</span>
+        </button>
+        <button class="action-btn" id="loc" title="موقعیت فعلی من">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg>
+          <span>موقعیت من</span>
+        </button>
+      </div>
+
+      <div class="tool-group">
+        <div class="glass-pill" id="seg" role="group" aria-label="نوع نمایش نقشه"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mobile-launcher" id="launcher">
+    <button class="launcher-main" id="openSheetBtn" aria-label="باز کردن جستجو و فهرست دانشگاه">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <span id="launcherText">جست‌وجو و مکان‌های دانشگاه...</span>
+    </button>
+    <span class="launcher-count" id="launcherCount">۳۸ مکان</span>
+  </div>
+
+  <aside id="panel" aria-label="فهرست مکان‌های دانشگاه">
+    <div class="sheet-header">
+      <div class="sheet-top-bar">
+        <div style="width:30px"></div>
+        <div class="grabber" id="grip"></div>
+        <button class="close-sheet" id="closeSheetBtn" aria-label="بستن پنجره">×</button>
+      </div>
+      <label class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="جست‌وجو: سلف، کتابخانه، پارکینگ..." autocomplete="off" aria-label="جست‌وجوی مکان">
+      </label>
+      <div class="chips" id="chips" role="group" aria-label="دسته‌بندی"></div>
+    </div>
+
+    <div class="p-body" id="body">
+      <article id="detail" hidden></article>
+      <ul class="list" id="list"></ul>
+      <footer class="panel-footer">
+        ساخته شده با <button type="button" class="inline-heart-btn" id="csFooterBtn" aria-label="پخش قلب">❤️</button> توسط <strong>انجمن کامپیوتر</strong> دانشگاه آزاد اسلامی کرمان
+      </footer>
+    </div>
+  </aside>
+
+  <div id="toast" role="status"></div>
+  <div class="fail" id="fail">نقشه بارگذاری نشد.<br>اتصال اینترنت یا فیلترشکن را بررسی کنید و صفحه را دوباره باز کنید.<br>فهرست مکان‌های دانشگاه همچنان در دسترس است.</div>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
