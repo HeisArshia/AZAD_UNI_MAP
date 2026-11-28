@@ -156,8 +156,36 @@ function renderDetail() {
     ? `<figure class="d-photo"><img src="${esc(it.photo)}" alt="${esc(it.name)}" decoding="async"></figure>`
     : '';
   d.innerHTML = photo + `<div class="d-top"><div class="d-ico">${emoji(it)}</div><div><h2>${esc(it.name)}</h2><small>${esc(c.n)}</small></div><button class="d-x" id="dx" aria-label="بستن">×</button></div>${lines}
-  <a class="go" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${it.ll[0]},${it.ll[1]}&travelmode=walking"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>مسیریابی تا اینجا</a>`;
+  <a class="go" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${it.ll[0]},${it.ll[1]}&travelmode=walking"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>مسیریابی با گوگل‌مپ</a>
+  <div class="rt"><b>🧭 از اینجا به کجا می‌خواهید بروید؟</b><div class="rch" id="rch"></div><select id="rsel" aria-label="انتخاب مقصد"><option value="">مقصد دیگر...</option></select></div>`;
   $('dx').onclick = () => select(null);
+  // پیشنهاد نزدیک‌ترین مقصدها + فهرست کامل
+  const near = DATA
+    .filter(x => x.id !== it.id && !x.poly && !/سرویس/.test(x.name))
+    .map(x => [x, dist(it.ll, x.ll)])
+    .sort((p, q) => p[1] - q[1])
+    .slice(0, 4);
+  near.forEach(([x, m]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.innerHTML = emoji(x) + ' ' + esc(x.name) + ' <small>' + fa(Math.round(m / 10) * 10) + ' م</small>';
+    b.onclick = () => goRoute(it.id, x.id);
+    $('rch').appendChild(b);
+  });
+  DATA.filter(x => x.id !== it.id)
+    .sort((p, q) => p.name.localeCompare(q.name, 'fa'))
+    .forEach(x => {
+      const o = document.createElement('option');
+      o.value = x.id;
+      o.textContent = x.name;
+      $('rsel').appendChild(o);
+    });
+  $('rsel').onchange = e => {
+    const v = e.target.value;
+    e.target.value = '';
+    if (v !== '') goRoute(it.id, +v);
+  };
   const img = d.querySelector('.d-photo img');
   if (img) {
     const fig = img.parentElement;
@@ -223,6 +251,98 @@ function select(id) {
     apply();
   }
   renderDetail();
+}
+
+/* ---------- مسیریابی پیاده بین دو مکان ---------- */
+const dist = (a, b) => {
+  const R = 6371000, r = Math.PI / 180;
+  const dA = (b[0] - a[0]) * r, dB = (b[1] - a[1]) * r;
+  const h = Math.sin(dA / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dB / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+let routeL = null, routeSeq = 0;
+
+function clearRoute() {
+  routeSeq++;
+  if (routeL && map) map.removeLayer(routeL);
+  routeL = null;
+  $('rbar').classList.remove('show');
+}
+
+async function goRoute(fi, ti) {
+  if (!map) { toast('نقشه بارگذاری نشده است.'); return; }
+  clearRoute();
+  const my = routeSeq;
+  const A = DATA[fi], B = DATA[ti];
+  const bar = $('rbar');
+  bar.innerHTML = 'در حال پیدا کردن مسیر...';
+  bar.classList.add('show');
+  setSheetOpen(false);
+
+  const straight = dist(A.ll, B.ll);
+  let pts = null, m = 0;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 7000);
+  try {
+    const url = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot/' +
+      A.ll[1] + ',' + A.ll[0] + ';' + B.ll[1] + ',' + B.ll[0] + '?overview=full&geometries=geojson';
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const rt = (await r.json()).routes[0];
+    pts = rt.geometry.coordinates.map(x => [x[1], x[0]]);
+    m = rt.distance;
+  } catch (e) {
+    pts = null;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (my !== routeSeq) return; // کاربر در این فاصله مسیر دیگری خواسته یا بسته است
+
+  // نقطه‌ها روی نزدیک‌ترین مسیر OSM قرار می‌گیرند؛ فاصله‌ی پین تا آن مسیر را هم حساب می‌کنیم
+  let gapA = null, gapB = null;
+  if (pts) {
+    gapA = [A.ll, pts[0]];
+    gapB = [pts[pts.length - 1], B.ll];
+    m += dist(A.ll, pts[0]) + dist(B.ll, pts[pts.length - 1]);
+    // مسیر خیلی دورتر از خط مستقیم یعنی احتمالاً داخل پردیس در OSM مسیری ثبت نشده است
+    if (m > straight * 1.8 + 80) pts = null;
+  }
+  const approx = !pts;
+  if (approx) {
+    pts = [A.ll, B.ll];
+    m = straight * 1.25;
+    gapA = gapB = null;
+  }
+
+  const min = Math.max(1, Math.round(m / 75));
+  const mm = Math.round(m / 5) * 5;
+  const layers = [
+    L.polyline(pts, { color: '#fff', weight: 10, opacity: .95 }),
+    L.polyline(pts, { color: '#2563eb', weight: 5, lineCap: 'round', dashArray: approx ? '1 10' : null })
+  ];
+  [gapA, gapB].forEach(g => { if (g) layers.push(L.polyline(g, { color: '#2563eb', weight: 3, dashArray: '2 8', lineCap: 'round' })); });
+  layers.push(
+    L.circleMarker(A.ll, { radius: 8, color: '#fff', weight: 3, fillColor: '#16a34a', fillOpacity: 1 }),
+    L.circleMarker(B.ll, { radius: 8, color: '#fff', weight: 3, fillColor: '#dc2626', fillOpacity: 1 })
+  );
+  routeL = L.layerGroup(layers).addTo(map);
+
+  bar.innerHTML =
+    '<div class="rt-title">' + esc(A.name) + ' ← ' + esc(B.name) + '</div>' +
+    '<div>' + fa(mm) + ' متر، حدود ' + fa(min) + ' دقیقه پیاده' +
+    (approx ? ' <small>(تقریبی؛ مسیر دقیق در دسترس نبود)</small>' : '') + '</div>' +
+    '<div class="rb"><button type="button" id="rsw">🔁 برعکس</button>' +
+    '<a class="g" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&origin=' +
+    A.ll[0] + ',' + A.ll[1] + '&destination=' + B.ll[0] + ',' + B.ll[1] + '&travelmode=walking">گوگل‌مپ</a>' +
+    '<button type="button" id="rcl">بستن</button></div>';
+  $('rsw').onclick = () => goRoute(ti, fi);
+  $('rcl').onclick = clearRoute;
+
+  map.fitBounds(L.latLngBounds(pts), {
+    paddingTopLeft: [40, isMobile() ? 115 : 95],
+    paddingBottomRight: [40, isMobile() ? 230 : 140],
+    maxZoom: 19
+  });
 }
 
 /* ---------- نقشه و لایه‌ها ---------- */
