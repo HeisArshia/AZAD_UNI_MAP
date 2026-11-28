@@ -21,7 +21,7 @@ body{
   color:var(--text);
   background:var(--ink-deep);
 }
-button,input{font-family:inherit;color:inherit}
+button,input,select{font-family:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2.5px solid var(--sun);outline-offset:2px}
 

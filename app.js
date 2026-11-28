@@ -345,6 +345,41 @@ async function goRoute(fi, ti) {
   });
 }
 
+/* ---------- محدود کردن نقشه به دانشگاه و خیابان‌های اطرافش ---------- */
+// BOUNDS در bounds.js تعریف شده است. اگر آن فایل نباشد، نقشه بدون محدودیت کار می‌کند.
+const HAS_BOUNDS = typeof BOUNDS !== 'undefined' && BOUNDS.length > 2;
+const BOUNDS_MASK = true; // false = بیرون محدوده تیره نشود
+
+function inCampus(ll) {
+  if (!HAS_BOUNDS) return true;
+  let c = false;
+  for (let i = 0, j = BOUNDS.length - 1; i < BOUNDS.length; j = i++) {
+    const [yi, xi] = BOUNDS[i], [yj, xj] = BOUNDS[j];
+    if ((yi > ll[0]) !== (yj > ll[0]) && ll[1] < (xj - xi) * (ll[0] - yi) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+
+function applyBounds() {
+  if (!HAS_BOUNDS) return;
+  const bb = L.latLngBounds(BOUNDS);
+  map.setMaxBounds(bb);
+  map.setMinZoom(map.getBoundsZoom(bb, false)); // کل محدوده یک‌جا دیده شود، دورتر نشود
+}
+
+function drawBoundsMask() {
+  if (!HAS_BOUNDS) return;
+  if (BOUNDS_MASK) {
+    const b = L.latLngBounds(BOUNDS), pad = 0.25;
+    const outer = [
+      [b.getSouth() - pad, b.getWest() - pad], [b.getSouth() - pad, b.getEast() + pad],
+      [b.getNorth() + pad, b.getEast() + pad], [b.getNorth() + pad, b.getWest() - pad]
+    ];
+    L.polygon([outer, BOUNDS], { stroke: false, fillColor: '#072329', fillOpacity: .62, interactive: false }).addTo(map);
+  }
+  L.polygon(BOUNDS, { color: '#f59e0b', weight: 2, dashArray: '6 6', fill: false, interactive: false }).addTo(map);
+}
+
 /* ---------- نقشه و لایه‌ها ---------- */
 const BASE = {
   sat: {
@@ -411,9 +446,11 @@ function fitAll() {
 }
 
 function bootMap() {
-  map = L.map('map', { zoomControl: false, zoomSnap: .5, maxZoom: 21, preferCanvas: true });
+  map = L.map('map', { zoomControl: false, zoomSnap: .5, maxZoom: 21, preferCanvas: true, maxBoundsViscosity: 1 });
   L.control.zoom({ position: 'bottomleft' }).addTo(map);
   fitAll();
+  applyBounds();
+  drawBoundsMask();
 
   const seg = $('seg');
   ORDER.forEach(k => {
@@ -458,6 +495,10 @@ function bootMap() {
     toast('در حال یافتن موقعیت شما...', 2200);
     navigator.geolocation.getCurrentPosition(p => {
       const ll = [p.coords.latitude, p.coords.longitude];
+      if (!inCampus(ll)) {
+        toast('شما بیرون از محدوده‌ی نقشه‌ی دانشگاه هستید.');
+        return;
+      }
       if (me) map.removeLayer(me);
       me = L.layerGroup([
         L.circle(ll, { radius: p.coords.accuracy, color: '#0ea5e9', weight: 1.5, fillOpacity: .16 }),
@@ -473,6 +514,7 @@ function bootMap() {
 
   addEventListener('resize', () => {
     map.invalidateSize();
+    applyBounds();
     updLabels();
   });
 }
