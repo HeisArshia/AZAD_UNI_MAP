@@ -140,11 +140,12 @@ header{
 .map-toolbar{
   display:flex;
   align-items:center;
-  justify-content:space-between;
+  justify-content:flex-end;
   gap:8px;
   width:100%;
 }
 .tool-group{
+  flex-wrap:wrap;justify-content:flex-end;
   pointer-events:auto;
   display:flex;
   align-items:center;
@@ -421,6 +422,18 @@ ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;ga
 }
 @keyframes pulse{from{transform:scale(.75);opacity:1}to{transform:scale(1.35);opacity:0}}
 .leaflet-marker-icon.sel-z{z-index:10000!important}
+
+/* ظاهر شدن پین‌ها: ورود اول مثل فرود از آسمان، دفعات بعد (مثلاً با زوم) یک پاپ ملایم */
+.pin{animation:pinPop .3s ease-out backwards}
+.pin.drop{animation:pinDrop .8s cubic-bezier(.22,1,.36,1) backwards;animation-delay:var(--d,0ms)}
+@keyframes pinPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes pinDrop{
+  0%{transform:translateY(-90px) scale(.55);opacity:0}
+  50%{transform:translateY(0) scale(1.1);opacity:1}
+  68%{transform:translateY(-10px) scale(.97)}
+  84%{transform:translateY(0) scale(1.03)}
+  100%{transform:translateY(0) scale(1)}
+}
 
 #toast{
   position:absolute;z-index:950;left:50%;top:122px;

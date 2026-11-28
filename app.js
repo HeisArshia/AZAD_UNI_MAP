@@ -15,6 +15,11 @@ const fa = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const isMobile = () => matchMedia('(max-width:760px)').matches;
 
 let map = null, sel = null, activeCat = 'all', query = '';
+
+// کدام مکان‌ها از اول روی نقشه دیده شوند؛ بقیه فقط با زوم زیاد (مثل گوگل‌مپ)، جست‌وجو یا انتخاب
+const OVERVIEW_CATS = new Set(['edu', 'admin', 'parking']);
+const DETAIL_ZOOM = 18;
+let introDone = false, introDelay = 450;
 const $ = id => document.getElementById(id);
 const toast = (m, ms = 2800) => {
   const t = $('toast');
@@ -198,16 +203,28 @@ function renderDetail() {
   }
 }
 
+function onMap(it) {
+  if (!visible(it)) return false;
+  if (it.id === sel) return true;
+  if (activeCat !== 'all' || query) return true; // فیلتر یا جست‌وجو فعال است: همه‌ی نتیجه‌ها دیده شوند
+  return OVERVIEW_CATS.has(it.cat) || (map && map.getZoom() >= DETAIL_ZOOM);
+}
+
+function syncPins() {
+  if (!map) return;
+  // در ورودِ اول پین‌ها از شمال به جنوب یکی‌یکی فرود می‌آیند
+  const list = introDone ? DATA : [...DATA].sort((a, b) => b.ll[0] - a.ll[0]);
+  list.forEach(it => {
+    const on = onMap(it);
+    if (on && !map.hasLayer(it._g)) it._g.addTo(map);
+    if (!on && map.hasLayer(it._g)) map.removeLayer(it._g);
+  });
+}
+
 function apply() {
   renderChips();
   renderList();
-  if (map) {
-    DATA.forEach(it => {
-      const on = visible(it);
-      if (on && !map.hasLayer(it._g)) it._g.addTo(map);
-      if (!on && map.hasLayer(it._g)) map.removeLayer(it._g);
-    });
-  }
+  syncPins();
 }
 
 function setSelClass(id, on) {
@@ -391,14 +408,9 @@ const BASE = {
     n: 'ماهواره ۲',
     url: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
     o: { subdomains: '0123', maxNativeZoom: 20, maxZoom: 21, attribution: 'Imagery © Google', updateWhenIdle: false, keepBuffer: 3 }
-  },
-  osm: {
-    n: 'نقشه ساده',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    o: { maxNativeZoom: 19, maxZoom: 21, attribution: '© OpenStreetMap', updateWhenIdle: false, keepBuffer: 3 }
   }
 };
-const ORDER = ['sat', 'gsat', 'osm'];
+const ORDER = ['sat', 'gsat'];
 let curLayer = null, curKey = null;
 
 function useBase(key, auto) {
@@ -475,14 +487,24 @@ function bootMap() {
     m.on('click', () => select(it.id));
     it._m = m;
     parts.push(m);
-    it._g = L.layerGroup(parts).addTo(map);
+    m.on('add', () => {
+      const el = m.getElement && m.getElement();
+      const p = el && el.querySelector('.pin');
+      if (!p || introDone) return;
+      p.classList.add('drop');
+      p.style.setProperty('--d', introDelay + 'ms');
+      introDelay += 45;
+    });
+    it._g = L.layerGroup(parts);
   });
 
-  map.on('zoomend', updLabels);
+  map.on('zoomend', () => { updLabels(); syncPins(); });
   updLabels();
   map.on('click', () => setSheetOpen(false));
   apply();
   if (sel !== null) setSelClass(sel, true);
+  setTimeout(() => { introDone = true; }, introDelay + 900);
+  setTimeout(() => toast('برای دیدن مکان‌های بیشتر نقشه را زوم کنید یا از جست‌وجو و دسته‌بندی‌ها استفاده کنید.', 4800), introDelay + 1300);
 
   $('fit').onclick = () => { select(null); setSheetOpen(false); fitAll(); };
 
